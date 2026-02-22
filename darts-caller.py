@@ -37,6 +37,7 @@ from assets.get_cred import load_client_credentials, get_client_credentials_from
 from assets.caller_profiles import CALLER_PROFILES
 from blind_support import BlindSupport
 from message_logger import init_logger, get_logger
+from assets.game_scores import GameScores
 
 os.environ['SSL_CERT_FILE'] = certifi.where()
 
@@ -63,7 +64,7 @@ main_directory = os.path.dirname(os.path.realpath(__file__))
 parent_directory = os.path.dirname(main_directory)
 
 
-VERSION = '2.20.2'
+VERSION = '2.20.3'
 
 
 DEFAULT_EMPTY_PATH = ''
@@ -1445,13 +1446,13 @@ def listen_to_match(m, ws):
             play_sound_effect('matchcancel')
             play_sound_effect('ambient_matchcancel', AMBIENT_SOUNDS_AFTER_CALLS, volume_mult = AMBIENT_SOUNDS, mod = False)
             mirror_sounds()
-            ppi('--------DEBUG Match delete')
+            # ppi('--------DEBUG Match delete')
         # USED TO TURN WLED OFF
         matchEnded = {
             "event": "match-ended",
             "me": AUTODART_USER_BOARD_ID
             }
-        ppi('--------DEBUG broadcast match ended')
+        # ppi('--------DEBUG broadcast match ended')
         broadcast(matchEnded)
 
 # BROADCAST BOARD STATUS FOR WLED
@@ -1568,7 +1569,14 @@ def process_match_x01(m):
     currentPlayer = m['players'][currentPlayerIndex]
     currentPlayerName = str(currentPlayer['name']).lower()
     currentPlayerIsBot = (m['players'][currentPlayerIndex]['cpuPPR'] is not None)
-    remainingPlayerScore = m['gameScores'][currentPlayerIndex]
+    # remainingPlayerScore = m['gameScores'][currentPlayerIndex]
+    remainingScoreP1, remainingScoreP2, remainingScoreP3, remainingScoreP4, remainingScoreP5, remainingScoreP6 = GameScores.all_players(m)
+    remainingPlayerScore = GameScores.player_score(m, currentPlayerIndex)
+    if remainingPlayerScore is None:
+        ppi("Skip x01: gameScores missing/invalid")
+        return
+    else:
+        ppi(f"Remaining player score: P1={remainingScoreP1}, P2={remainingScoreP2}, P3={remainingScoreP3}, P4={remainingScoreP4}, P5={remainingScoreP5}, P6={remainingScoreP6}")
     numberOfPlayers = len(m['players'])
     turns = m['turns'][0]
     points = str(turns['points'])
@@ -1617,6 +1625,14 @@ def process_match_x01(m):
             
                 #     {"number": "3", "value": "60"}
                 # ]
+            },
+            "remainingScores": {
+                "player1": str(remainingScoreP1),
+                "player2": str(remainingScoreP2),
+                "player3": str(remainingScoreP3),
+                "player4": str(remainingScoreP4),
+                "player5": str(remainingScoreP5),
+                "player6": str(remainingScoreP6)
             }
         }
         # ppi(dartsPulled)
@@ -1785,6 +1801,14 @@ def process_match_x01(m):
                     },
                     "type": type
                     
+                },
+                "remainingScores": {
+                    "player1": str(remainingScoreP1),
+                    "player2": str(remainingScoreP2),
+                    "player3": str(remainingScoreP3),
+                    "player4": str(remainingScoreP4),
+                    "player5": str(remainingScoreP5),
+                    "player6": str(remainingScoreP6)
                 } 
             }
         broadcast(matchWon)
@@ -1830,7 +1854,15 @@ def process_match_x01(m):
                     "fieldName": field_name,
                     "fieldNumber": field_number,
                     "fieldMultiplier": field_multiplier
-                } 
+                },
+                "remainingScores": {
+                    "player1": str(remainingScoreP1),
+                    "player2": str(remainingScoreP2),
+                    "player3": str(remainingScoreP3),
+                    "player4": str(remainingScoreP4),
+                    "player5": str(remainingScoreP5),
+                    "player6": str(remainingScoreP6)
+                }
             }
         broadcast(gameWon)
 
@@ -1919,7 +1951,15 @@ def process_match_x01(m):
                 "pointsStart": str(m['settings'][base]),
                 # TODO: fix
                 "special": "TODO"
-                }     
+                },
+                "remainingScores": {
+                    "player1": str(remainingScoreP1),
+                    "player2": str(remainingScoreP2),
+                    "player3": str(remainingScoreP3),
+                    "player4": str(remainingScoreP4),
+                    "player5": str(remainingScoreP5),
+                    "player6": str(remainingScoreP6)
+                }    
             }
         broadcast(matchStarted)
 
@@ -1933,6 +1973,7 @@ def process_match_x01(m):
             play_sound_effect('first_to_throw', wait_for_last= True)
         else:
             if CALL_CURRENT_PLAYER >= 1:
+                callPlayerNameState = True
                 if play_sound_effect(currentPlayerName, wait_for_last= True) == False:
                     play_sound_effect('player'+str(playerNameCaller), wait_for_last= True)
 
@@ -1964,7 +2005,15 @@ def process_match_x01(m):
                 "pointsStart": str(m['settings'][base]),
                 # TODO: fix
                 "special": "TODO"
-                }     
+                },
+            "remainingScores": {
+                "player1": str(remainingScoreP1),
+                "player2": str(remainingScoreP2),
+                "player3": str(remainingScoreP3),
+                "player4": str(remainingScoreP4),
+                "player5": str(remainingScoreP5),
+                "player6": str(remainingScoreP6)
+            }     
             }
         broadcast(gameStarted)
 
@@ -2022,7 +2071,15 @@ def process_match_x01(m):
                         "field_multiplier": field_multiplier,
                         "type": type,
                         "busted": "True",
-                    }       
+                    },
+                "remainingScores": {
+                    "player1": str(remainingScoreP1),
+                    "player2": str(remainingScoreP2),
+                    "player3": str(remainingScoreP3),
+                    "player4": str(remainingScoreP4),
+                    "player5": str(remainingScoreP5),
+                    "player6": str(remainingScoreP6)
+                }       
                 }
         broadcast(busted)
 
@@ -2067,6 +2124,14 @@ def process_match_x01(m):
                         "y": field_cords_y
                     },
                 "type": type    
+            },
+            "remainingScores": {
+                "player1": str(remainingScoreP1),
+                "player2": str(remainingScoreP2),
+                "player3": str(remainingScoreP3),
+                "player4": str(remainingScoreP4),
+                "player5": str(remainingScoreP5),
+                "player6": str(remainingScoreP6)
             }
         }
         broadcast(dart1Thrown)
@@ -2100,6 +2165,14 @@ def process_match_x01(m):
                         "y": field_cords_y
                     },
                 "type": type         
+            },
+            "remainingScores": {
+                "player1": str(remainingScoreP1),
+                "player2": str(remainingScoreP2),
+                "player3": str(remainingScoreP3),
+                "player4": str(remainingScoreP4),
+                "player5": str(remainingScoreP5),
+                "player6": str(remainingScoreP6)
             }
         }
         broadcast(dart2Thrown)
@@ -2133,6 +2206,14 @@ def process_match_x01(m):
                         "y": field_cords_y
                     },
                 "type": type         
+            },
+            "remainingScores": {
+                "player1": str(remainingScoreP1),
+                "player2": str(remainingScoreP2),
+                "player3": str(remainingScoreP3),
+                "player4": str(remainingScoreP4),
+                "player5": str(remainingScoreP5),
+                "player6": str(remainingScoreP6)
             }
         }
         broadcast(dart3Thrown)
@@ -2146,6 +2227,14 @@ def process_match_x01(m):
                 "pointsLeft": str(remainingPlayerScore),
                 "dartNumber": "3",
                 "dartValue": points,        
+            },
+            "remainingScores": {
+                "player1": str(remainingScoreP1),
+                "player2": str(remainingScoreP2),
+                "player3": str(remainingScoreP3),
+                "player4": str(remainingScoreP4),
+                "player5": str(remainingScoreP5),
+                "player6": str(remainingScoreP6)
             }
         }
         broadcast(dartsThrown)
@@ -4963,7 +5052,7 @@ def on_open_autodarts(ws):
         }
         ws_send_with_logging(ws, paramsSubscribeUserEvents)
 
-        # ppi('Receiving live information for user-id: ' + kc.user_id)
+        ppi('Receiving live information for user-id: ' + kc.user_id)
 
     except Exception as e:
         ppe('WS-Open-users failed: ', e)

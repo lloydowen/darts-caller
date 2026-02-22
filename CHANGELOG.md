@@ -1,3 +1,7 @@
+## 2.20.3
+- Fix overlapping match on sound. 
+- add player specific remaining score messages
+
 ## 2.20.2
 - Blind support bugfix in RTW
 - Blind support calls also hit number befor busted
