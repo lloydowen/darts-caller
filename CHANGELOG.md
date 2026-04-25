@@ -1,3 +1,6 @@
+## 2.20.4
+- fix bug where player specific remaining score messages were not played for the bot player.
+
 ## 2.20.3
 - Fix overlapping match on sound. 
 - add player specific remaining score messages

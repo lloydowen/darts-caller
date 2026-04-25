@@ -23,9 +23,8 @@ jobs:
         release_name: Release ${{ github.ref }}
         body: |
            # Changes in this Release
-            ## 2.20.2
-            - Blind support bugfix in RTW
-            - Blind support calls also hit number befor busted
+            ## 2.20.4
+            - fix bug where player specific remaining score messages were not played for the bot player.
         draft: false
         prerelease: false
         

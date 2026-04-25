@@ -64,7 +64,7 @@ main_directory = os.path.dirname(os.path.realpath(__file__))
 parent_directory = os.path.dirname(main_directory)
 
 
-VERSION = '2.20.3'
+VERSION = '2.20.4'
 
 
 DEFAULT_EMPTY_PATH = ''
@@ -5067,6 +5067,7 @@ def on_message_autodarts(ws, message):
             global indexNameMacro
             global matchIsActive
             global match_lock
+            global processing_lock
             m = json.loads(message)
             
             # Log incoming WebSocket message
@@ -5125,32 +5126,33 @@ def on_message_autodarts(ws, message):
 
                 variant = data['variant']
                 
-                if variant == 'Bull-off':
-                    process_bulling(data)
+                with processing_lock:
+                    if variant == 'Bull-off':
+                        process_bulling(data)
 
-                elif variant == 'X01' or variant == 'Random Checkout':
-                    process_match_x01(data)
+                    elif variant == 'X01' or variant == 'Random Checkout':
+                        process_match_x01(data)
+                        
+                    elif variant == 'Cricket':
+                        process_match_cricket(data)
                     
-                elif variant == 'Cricket':
-                    process_match_cricket(data)
-                
-                elif variant == 'ATC':
-                    process_match_atc(data)
+                    elif variant == 'ATC':
+                        process_match_atc(data)
 
-                elif variant == 'RTW':
-                    process_match_rtw(data)
-               
-                elif variant == 'CountUp':
-                    process_match_CountUp(data)
+                    elif variant == 'RTW':
+                        process_match_rtw(data)
+                   
+                    elif variant == 'CountUp':
+                        process_match_CountUp(data)
 
-                elif variant == 'Bermuda':
-                    process_match_Bermuda(data)
-                
-                elif variant == 'Shanghai':
-                    process_match_shanghai(data)
+                    elif variant == 'Bermuda':
+                        process_match_Bermuda(data)
+                    
+                    elif variant == 'Shanghai':
+                        process_match_shanghai(data)
 
-                elif variant == 'Gotcha':
-                    process_match_gotcha(data)
+                    elif variant == 'Gotcha':
+                        process_match_gotcha(data)
 
             elif m['channel'] == 'autodarts.boards':
                 data = m['data']
@@ -5946,6 +5948,9 @@ if __name__ == "__main__":
 
     global match_lock
     match_lock = threading.Lock()
+
+    global processing_lock
+    processing_lock = threading.Lock()
 
     global currentMatchPlayers
     currentMatchPlayers = []
