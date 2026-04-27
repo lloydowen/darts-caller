@@ -1,5 +1,7 @@
 ## 2.20.4
 - fix bug where player specific remaining score messages were not played for the bot player.
+- reworked playback threads to avoid overlapping sounds and called scores after match is finished.
+- fix wrong language pack for NL and FR voices
 
 ## 2.20.3
 - Fix overlapping match on sound. 

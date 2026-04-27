@@ -102,6 +102,9 @@ DEFAULT_HOST_IP = '0.0.0.0'
 DEFAULT_CALLER_REAL_LIFE = 0
 DEFAULT_CALL_BLIND_SUPPORT = 0
 
+VOICE_CHANNEL_ID = 1
+AMBIENT_CHANNEL_ID = 0
+
 EXT_WLED = False
 EXT_PIXEL = False
 USER_LOCATION = ""
@@ -818,7 +821,7 @@ def check_sounds(sounds_list):
         all_sounds_available = False
     return all_sounds_available
 
-def play_sound(sound, wait_for_last, volume_mult, mod, break_last):
+def play_sound(sound, wait_for_last, volume_mult, mod, break_last, is_ambient=False):
     volume = 1.0
     if AUDIO_CALLER_VOLUME is not None:
         volume = AUDIO_CALLER_VOLUME * volume_mult
@@ -837,27 +840,34 @@ def play_sound(sound, wait_for_last, volume_mult, mod, break_last):
     mirror_files.append(mirror_file)
 
     if LOCAL_PLAYBACK:
+        voice_channel = mixer.Channel(VOICE_CHANNEL_ID)
+        ambient_channel = mixer.Channel(AMBIENT_CHANNEL_ID)
+        target_channel = ambient_channel if is_ambient else voice_channel
+
         if break_last == True:
-            # Signal alle wartenden Schleifen zu stoppen
-            sound_break_event.set()
-            # stop last sound
-            try:
-                mixer.stop()
-            except Exception as e:
-                ppe('Failed to stop last sound', e)
-            # Warte kurz, damit wartende Threads das Signal empfangen
-            time.sleep(0.05)
-            
-            # Event zurücksetzen - aber nur wenn kein anderer Thread es gerade nutzt
-            # Dies ist sicherer mit einem Lock
-            sound_break_event.clear()
+            # Ambient-Sounds dürfen nie durch break_last unterbrochen werden.
+            if not is_ambient:
+                # Signal alle wartenden Schleifen zu stoppen
+                sound_break_event.set()
+                # Stop only voice playback so ambient can continue in background
+                try:
+                    voice_channel.stop()
+                except Exception as e:
+                    ppe('Failed to stop last voice sound', e)
+                # Warte kurz, damit wartende Threads das Signal empfangen
+                time.sleep(0.05)
+
+                # Event zurücksetzen - aber nur wenn kein anderer Thread es gerade nutzt
+                # Dies ist sicherer mit einem Lock
+                sound_break_event.clear()
 
         if wait_for_last == True:
             check_interval = 0.01
             max_wait = 30  # Max 30 Sekunden warten
             waited = 0
             
-            while mixer.get_busy() and waited < max_wait:
+            # Wait only for target channel. Ambient channel must not block voice calls.
+            while target_channel.get_busy() and waited < max_wait:
                 if sound_break_event.is_set():
                     ppi('Sound waiting loop interrupted by break_last signal')
                     return
@@ -876,12 +886,9 @@ def play_sound(sound, wait_for_last, volume_mult, mod, break_last):
         #             return  # Verlasse die Funktion ohne Sound abzuspielen
         #         time.sleep(0.01)
 
-             
-        
-
         s = mixer.Sound(sound)
         s.set_volume(volume)
-        s.play()
+        target_channel.play(s)
 
     if DEBUG:
         debug_params = []
@@ -902,7 +909,8 @@ def play_sound(sound, wait_for_last, volume_mult, mod, break_last):
 def play_sound_effect(sound_file_key, wait_for_last = False, volume_mult = 1.0, mod = True, break_last = False):
     try:
         global caller
-        play_sound(random.choice(caller[sound_file_key]), wait_for_last, volume_mult, mod, break_last)
+        is_ambient = sound_file_key.startswith('ambient_')
+        play_sound(random.choice(caller[sound_file_key]), wait_for_last, volume_mult, mod, break_last, is_ambient)
         return True
     except Exception as e:
         ppe('Can not play sound for sound-file-key "' + sound_file_key + '" -> Ignore this or check existance; otherwise convert your file appropriate', e)
@@ -916,6 +924,7 @@ def play_sound_effect_variant(sound_file_key, variant, wait_for_last = False, vo
     """
     try:
         global caller
+        is_ambient = sound_file_key.startswith('ambient_')
         # Get all files for this key
         sound_files = caller[sound_file_key]
         
@@ -939,11 +948,11 @@ def play_sound_effect_variant(sound_file_key, variant, wait_for_last = False, vo
                     break
         
         if variant_file:
-            play_sound(variant_file, wait_for_last, volume_mult, mod, break_last)
+            play_sound(variant_file, wait_for_last, volume_mult, mod, break_last, is_ambient)
             return True
         else:
             # Fallback to random choice if variant not found
-            play_sound(random.choice(sound_files), wait_for_last, volume_mult, mod, break_last)
+            play_sound(random.choice(sound_files), wait_for_last, volume_mult, mod, break_last, is_ambient)
             return True
     except Exception as e:
         ppe('Can not play sound variant for sound-file-key "' + sound_file_key + ('+' + variant if variant else '') + '" -> Ignore this or check existance; otherwise convert your file appropriate', e)
@@ -2048,6 +2057,11 @@ def process_match_x01(m):
 
             ppi('Gameon')
           
+    # Ignore repeated finished-state updates (e.g. after pressing finish)
+    # to avoid replaying 1/2/3-dart turn score calls after matchshot/gameshot.
+    elif m.get('finished') == True or m.get('gameFinished') == True:
+        isGameFinished = True
+
     # Check for busted turn
     elif busted == True:
         lastPoints = "B"
@@ -6053,6 +6067,10 @@ if __name__ == "__main__":
         try:
             mixer.pre_init(MIXER_FREQUENCY, MIXER_SIZE, MIXER_CHANNELS, MIXER_BUFFERSIZE)
             mixer.init()
+            # Reserve two dedicated channels:
+            # channel 0 = ambient (never interrupted by break_last)
+            # channel 1 = regular voice calls
+            mixer.set_num_channels(max(MIXER_CHANNELS, 2))
         except Exception as e:
             ppe("Failed to initialize audio device! Make sure the target device is connected and configured as os default. Fallback to web-caller", e)
 

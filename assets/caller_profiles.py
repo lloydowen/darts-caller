@@ -122,11 +122,11 @@ CALLER_PROFILES = {
     'it-IT-Chirp3-HD-Enceladus-MALE': ('https://darts-downloads.peschi.org/soundfiles/google/it-IT-Chirp3-HD-Enceladus-MALE.zip', 1),
     'it-IT-Chirp3-HD-Puck-MALE': ('https://darts-downloads.peschi.org/soundfiles/google/it-IT-Chirp3-HD-Puck-MALE.zip', 1),
     # -- nl-NL --
-    'nl-NL-Chirp3-HD-Achird-MALE': ('https://darts-downloads.peschi.org/soundfiles/google/fr-FR-Chirp3-HD-Achird-MALE.zip', 1),
-    'nl-NL-Chirp3-HD-Algenib-MALE': ('https://darts-downloads.peschi.org/soundfiles/google/fr-FR-Chirp3-HD-Algenib-MALE.zip', 1),
-    'nl-NL-Chirp3-HD-Alnilam-MALE': ('https://darts-downloads.peschi.org/soundfiles/google/fr-FR-Chirp3-HD-Alnilam-MALE.zip', 1),
-    'nl-NL-Chirp3-HD-Enceladus-MALE': ('https://darts-downloads.peschi.org/soundfiles/google/fr-FR-Chirp3-HD-Enceladus-MALE.zip', 1),
-    'nl-NL-Chirp3-HD-Puck-MALE': ('https://darts-downloads.peschi.org/soundfiles/google/fr-FR-Chirp3-HD-Puck-MALE.zip', 1),
+    'nl-NL-Chirp3-HD-Achird-MALE': ('https://darts-downloads.peschi.org/soundfiles/google/nl-NL-Chirp3-HD-Achird-MALE.zip', 1),
+    'nl-NL-Chirp3-HD-Algenib-MALE': ('https://darts-downloads.peschi.org/soundfiles/google/nl-NL-Chirp3-HD-Algenib-MALE.zip', 1),
+    'nl-NL-Chirp3-HD-Alnilam-MALE': ('https://darts-downloads.peschi.org/soundfiles/google/nl-NL-Chirp3-HD-Alnilam-MALE.zip', 1),
+    'nl-NL-Chirp3-HD-Enceladus-MALE': ('https://darts-downloads.peschi.org/soundfiles/google/nl-NL-Chirp3-HD-Enceladus-MALE.zip', 1),
+    'nl-NL-Chirp3-HD-Puck-MALE': ('https://darts-downloads.peschi.org/soundfiles/google/nl-NL-Chirp3-HD-Puck-MALE.zip', 1),
     # -- ru-RU --
     'ru-RU-Chirp3-HD-Aoede-FEMALE': ('https://darts-downloads.peschi.org/soundfiles/google/ru-RU-Chirp3-HD-Aoede-FEMALE.zip', 1),
     # ------------------------------------------------------------------------------------------------
@@ -158,11 +158,11 @@ CALLER_PROFILES = {
     'es-ES-onyx-MALE': ('https://darts-downloads.peschi.org/soundfiles/openai/es-ES-onyx-MALE.zip', 1),
     'es-ES-sage-FEMALE': ('https://darts-downloads.peschi.org/soundfiles/openai/es-ES-sage-FEMALE.zip', 1),
     # -- fr-FR --
-    'fr-FR-ash-MALE': ('https://darts-downloads.peschi.org/soundfiles/openai/es-ES-ash-MALE.zip', 1),
-    'fr-FR-ballad-MALE': ('https://darts-downloads.peschi.org/soundfiles/openai/es-ES-ballad-MALE.zip', 1),
-    'fr-FR-coral-FEMALE': ('https://darts-downloads.peschi.org/soundfiles/openai/es-ES-coral-FEMALE.zip', 1),
-    'es-ES-onyx-MALE': ('https://darts-downloads.peschi.org/soundfiles/openai/es-ES-onyx-MALE.zip', 1),
-    'es-ES-sage-FEMALE': ('https://darts-downloads.peschi.org/soundfiles/openai/es-ES-sage-FEMALE.zip', 1),
+    'fr-FR-ash-MALE': ('https://darts-downloads.peschi.org/soundfiles/openai/fr-FR-ash-MALE.zip', 1),
+    'fr-FR-ballad-MALE': ('https://darts-downloads.peschi.org/soundfiles/openai/fr-FR-ballad-MALE.zip', 1),
+    'fr-FR-coral-FEMALE': ('https://darts-downloads.peschi.org/soundfiles/openai/fr-FR-coral-FEMALE.zip', 1),
+    'fr-FR-onyx-MALE': ('https://darts-downloads.peschi.org/soundfiles/openai/fr-FR-onyx-MALE.zip', 1),
+    'fr-FR-sage-FEMALE': ('https://darts-downloads.peschi.org/soundfiles/openai/fr-FR-sage-FEMALE.zip', 1),
     # -- it-IT --
     'it-IT-ash-MALE': ('https://darts-downloads.peschi.org/soundfiles/openai/it-IT-ash-MALE.zip', 1),
     'it-IT-ballad-MALE': ('https://darts-downloads.peschi.org/soundfiles/openai/it-IT-ballad-MALE.zip', 1),
