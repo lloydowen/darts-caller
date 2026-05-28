@@ -28,12 +28,12 @@ import requests
 import websocket
 import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-from assets.autodarts_keycloak_client import AutodartsKeycloakClient
+from assets.autodarts_auth_client import AutodartsAuthClient
 from flask import Flask, render_template, send_from_directory, request
 from flask_socketio import SocketIO
 from werkzeug.serving import make_ssl_devcert
 from engineio.async_drivers import threading as th # IMPORTANT
-from assets.get_cred import load_client_credentials, get_client_credentials_from_nodejs_server
+from assets.get_cred import load_client_id
 from assets.caller_profiles import CALLER_PROFILES
 from blind_support import BlindSupport
 from message_logger import init_logger, get_logger
@@ -116,14 +116,12 @@ WLED_SETTINGS_ARGS = {}
 CALLER_SETTINGS_ARGS = {}
 
 AUTODARTS_CLIENT_ID = None
-AUTODARTS_CLIENT_SECRET = None
-AUTODARTS_REALM_NAME = 'autodarts'
 
 
 
 
 AUTODARTS_URL = 'https://autodarts.io'
-AUTODARTS_AUTH_URL = 'https://login.autodarts.io/'
+AUTODARTS_AUTH_URL = 'https://api.autodarts.io/auth/v1/'
 AUTODARTS_LOBBIES_URL = 'https://api.autodarts.io/gs/v0/lobbies/'
 AUTODARTS_MATCHES_URL = 'https://api.autodarts.io/gs/v0/matches/'
 AUTODARTS_BOARDS_URL = 'https://api.autodarts.io/bs/v0/boards/'
@@ -1027,8 +1025,8 @@ def get_player_average(user_id, variant = 'x01', limit = '100'):
     # get
     # https://api.autodarts.io/as/v0/users/<user-id>/stats/<variant>?limit=<limit>
     try:
-        # res = requests.get(AUTODARTS_USERS_URL + user_id + "/stats/" + variant + "?limit=" + limit, headers={'Authorization': 'Bearer ' + kc.access_token})
-        res = requests.get(AUTODARTS_USERS_URL + user_id + "/stats/" + variant + "?limit=" + limit, headers = {'Authorization': f'Bearer {kc.access_token}'})
+        # res = requests.get(AUTODARTS_USERS_URL + user_id + "/stats/" + variant + "?limit=" + limit, headers={'Authorization': 'Bearer ' + auth.access_token})
+        res = requests.get(AUTODARTS_USERS_URL + user_id + "/stats/" + variant + "?limit=" + limit, headers = {'Authorization': f'Bearer {auth.access_token}'})
         m = res.json()
         # ppi(m)
         return m['average']['average']
@@ -1046,7 +1044,7 @@ def start_match(lobbyId):
     try:
         global currentMatch
         if currentMatch != None:
-            res = requests.post(AUTODARTS_LOBBIES_URL + lobbyId + "/start", headers = {'Authorization': f'Bearer {kc.access_token}'})
+            res = requests.post(AUTODARTS_LOBBIES_URL + lobbyId + "/start", headers = {'Authorization': f'Bearer {auth.access_token}'})
             ppi(res)
 
     except Exception as e:
@@ -1062,7 +1060,7 @@ def next_throw():
     try:
         global currentMatch
         if currentMatch != None:
-            requests.post(AUTODARTS_MATCHES_URL + currentMatch + "/players/next", headers = {'Authorization': f'Bearer {kc.access_token}'})
+            requests.post(AUTODARTS_MATCHES_URL + currentMatch + "/players/next", headers = {'Authorization': f'Bearer {auth.access_token}'})
 
     except Exception as e:
         ppe('Next throw failed', e)
@@ -1077,7 +1075,7 @@ def undo_throw():
     try:
         global currentMatch
         if currentMatch != None:
-            requests.post(AUTODARTS_MATCHES_URL + currentMatch + "/undo", headers = {'Authorization': f'Bearer {kc.access_token}'})
+            requests.post(AUTODARTS_MATCHES_URL + currentMatch + "/undo", headers = {'Authorization': f'Bearer {auth.access_token}'})
     except Exception as e:
         ppe('Undo throw failed', e)
 
@@ -1126,7 +1124,7 @@ def correct_throw(throw_indices, score):
 
         # ppi(f'Data: {data}')
         if lastCorrectThrow == None or lastCorrectThrow != data:
-            requests.patch(AUTODARTS_MATCHES_URL + currentMatch + "/throws", json=data, headers = {'Authorization': f'Bearer {kc.access_token}'})
+            requests.patch(AUTODARTS_MATCHES_URL + currentMatch + "/throws", json=data, headers = {'Authorization': f'Bearer {auth.access_token}'})
             lastCorrectThrow = data
         else:
             lastCorrectThrow = None 
@@ -1145,7 +1143,7 @@ def next_game():
     try:
         global currentMatch
         if currentMatch != None:
-            requests.post(AUTODARTS_MATCHES_URL + currentMatch + "/games/next", headers = {'Authorization': f'Bearer {kc.access_token}'})
+            requests.post(AUTODARTS_MATCHES_URL + currentMatch + "/games/next", headers = {'Authorization': f'Bearer {auth.access_token}'})
 
     except Exception as e:
         ppe('Next game failed', e)
@@ -1157,7 +1155,7 @@ def receive_local_board_address():
         global boardManagerAddress
 
         if boardManagerAddress == None:
-            res = requests.get(AUTODARTS_BOARDS_URL + AUTODART_USER_BOARD_ID, headers = {'Authorization': f'Bearer {kc.access_token}'})
+            res = requests.get(AUTODARTS_BOARDS_URL + AUTODART_USER_BOARD_ID, headers = {'Authorization': f'Bearer {auth.access_token}'})
             board_ip = res.json()['ip']
             if board_ip != None and board_ip != '':  
                 boardManagerAddress = board_ip
@@ -1220,7 +1218,7 @@ def listen_to_match(m, ws):
         # get
         # https://api.autodarts.io/gs/v0/matches/<match-id>
         try:
-            res = requests.get(AUTODARTS_MATCHES_URL + currentMatch, headers = {'Authorization': f'Bearer {kc.access_token}'})
+            res = requests.get(AUTODARTS_MATCHES_URL + currentMatch, headers = {'Authorization': f'Bearer {auth.access_token}'})
             m = res.json()
             # ppi(json.dumps(m, indent = 4, sort_keys = True))
 
@@ -4981,7 +4979,7 @@ def connect_autodarts():
     global USER_ID
     global USER_NAME
 
-    res2 = requests.get(AUTODARTS_BOARDS_URL + AUTODART_USER_BOARD_ID, headers = {'Authorization': f'Bearer {kc.access_token}'})
+    res2 = requests.get(AUTODARTS_BOARDS_URL + AUTODART_USER_BOARD_ID, headers = {'Authorization': f'Bearer {auth.access_token}'})
     # ppi(json.dumps(res2.json(), indent = 4, sort_keys = True))
     if 'country' in res2.json()['permissions'][0]['user']:
         userlocationtemp = res2.json()['permissions'][0]['user']['country']
@@ -5009,7 +5007,7 @@ def connect_autodarts():
     def process(*args):
         websocket.enableTrace(False)
         ws = websocket.WebSocketApp(AUTODARTS_WEBSOCKET_URL,
-                                    header={'Authorization': f'Bearer {kc.access_token}'},
+                                    header={'Authorization': f'Bearer {auth.access_token}'},
                                     on_open = on_open_autodarts,
                                     on_message = on_message_autodarts,
                                     on_error = on_error_autodarts,
@@ -5028,7 +5026,7 @@ def on_open_autodarts(ws):
     # get
     # https://api.autodarts.io/gs/v0/board/
     try:
-        res = requests.get(AUTODARTS_BOARDS_URL+AUTODART_USER_BOARD_ID, headers = {'Authorization': f'Bearer {kc.access_token}'})
+        res = requests.get(AUTODARTS_BOARDS_URL+AUTODART_USER_BOARD_ID, headers = {'Authorization': f'Bearer {auth.access_token}'})
         res = res.json()
         # ppi(json.dumps(res, indent = 4, sort_keys = True))
         if 'matchId' in res and res['matchId'] != None:
@@ -5062,11 +5060,11 @@ def on_open_autodarts(ws):
         paramsSubscribeUserEvents = {
             "channel": "autodarts.users",
             "type": "subscribe",
-            "topic": kc.user_id + ".events"
+            "topic": auth.user_id + ".events"
         }
         ws_send_with_logging(ws, paramsSubscribeUserEvents)
 
-        ppi('Receiving live information for user-id: ' + kc.user_id)
+        ppi('Receiving live information for user-id: ' + auth.user_id)
 
     except Exception as e:
         ppe('WS-Open-users failed: ', e)
@@ -5217,7 +5215,7 @@ def on_message_autodarts(ws, message):
                         ppi('Stop Listen to lobby: ' + lobby_id)
                         ppi('I left the lobby, message from autodarts.users')
                         # neue reconnect überprüfung wenn lobby verlassen wird
-                        res = requests.get(AUTODARTS_BOARDS_URL+AUTODART_USER_BOARD_ID, headers = {'Authorization': f'Bearer {kc.access_token}'})
+                        res = requests.get(AUTODARTS_BOARDS_URL+AUTODART_USER_BOARD_ID, headers = {'Authorization': f'Bearer {auth.access_token}'})
                         res = res.json()
                         # ppi(json.dumps(res, indent = 4, sort_keys = True))
                         if 'matchId' in res and res['matchId'] != None:
@@ -5786,8 +5784,8 @@ if __name__ == "__main__":
         
     ap = CustomArgumentParser()
     
-    ap.add_argument("-U", "--autodarts_email", required=True, help="Registered email address at " + AUTODARTS_URL)
-    ap.add_argument("-P", "--autodarts_password", required=True, help="Registered password address at " + AUTODARTS_URL)
+    ap.add_argument("-U", "--autodarts_email", required=False, default=None, help="Deprecated — login is now handled via browser. This argument is ignored.")
+    ap.add_argument("-P", "--autodarts_password", required=False, default=None, help="Deprecated — login is now handled via browser. This argument is ignored.")
     ap.add_argument("-B", "--autodarts_board_id", required=True, help="Registered board-id at " + AUTODARTS_URL)
     ap.add_argument("-M", "--media_path", required=True, help="Absolute path to your media")
     ap.add_argument("-MS", "--media_path_shared", required=False, default=DEFAULT_EMPTY_PATH, help="Absolute path to shared media folder (every caller get sounds)")
@@ -5915,18 +5913,12 @@ if __name__ == "__main__":
     CALL_BLIND_SUPPORT = args['call_blind_support']
     if CALL_BLIND_SUPPORT < 0: CALL_BLIND_SUPPORT = DEFAULT_CALL_BLIND_SUPPORT
 
-    # Lade Client-Credentials basierend auf Konfiguration
-    client_id, client_secret = load_client_credentials()
-    AUTODARTS_CLIENT_ID = client_id
-    AUTODARTS_REALM_NAME = 'autodarts'
-    AUTODARTS_CLIENT_SECRET = client_secret
+    AUTODARTS_CLIENT_ID = load_client_id()
 
 
     if DEBUG:
         ppi('Started with following arguments:')
         data_to_mask = {
-            "autodarts_email": "email", 
-            "autodarts_password": "str",
             "autodarts_board_id": "str"
         }
         masked_args = mask(args, data_to_mask)
@@ -6134,27 +6126,12 @@ if __name__ == "__main__":
         #     print("Authentifizierung fehlgeschlagen. Programm wird beendet.")
         #     sys.exit()
 
-        # Instanz der AutodartsKeycloakClient-Klasse erstellen
-        # keycloak_client = AutodartsKeycloakClient(
-        #     username=AUTODART_USER_EMAIL,
-        #     password=AUTODART_USER_PASSWORD,
-        #     client_id=None,
-        #     client_secret=None,
-        #     debug=True,  # Debugging aktivieren
-        #     nodejs_server_url=NODEJS_SERVER_URL
-        # )
-        # keycloak_client.start()
-        # ORIGINAL KEYCLOAK AUTHENTICATION
-        kc = AutodartsKeycloakClient(username=AUTODART_USER_EMAIL, 
-                                password=AUTODART_USER_PASSWORD, 
-                                client_id=AUTODARTS_CLIENT_ID, 
-                                client_secret=AUTODARTS_CLIENT_SECRET,
-                                debug=DEBUG)                     
-        kc.start()
+        auth = AutodartsAuthClient(client_id=AUTODARTS_CLIENT_ID, debug=DEBUG)
+        auth.start()
         connect_autodarts()
 
         start_webserver(DEFAULT_HOST_IP, HOST_PORT, ssl_context)
         # keycloak_client.stop()
-        kc.stop()
+        auth.stop()
     except Exception as e:
         ppe("Connect failed: ", e)
