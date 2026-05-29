@@ -16,6 +16,8 @@ USERINFO_URL = f'{AUTH_BASE}/userinfo'
 
 DEVICE_GRANT_TYPE = 'urn:ietf:params:oauth:grant-type:device_code'
 
+VERIFY_TLS = os.getenv('AUTODARTS_AUTH_INSECURE_TLS', '').lower() not in ('1', 'true', 'yes')
+
 TOKEN_FILE = Path.home() / '.config' / 'darts-caller' / 'tokens.json'
 
 TICK = 30
@@ -81,7 +83,7 @@ class AutodartsAuthClient:
         self._device_login()
 
     def _device_login(self):
-        resp = requests.post(DEVICE_CODE_URL, json={'client_id': self.client_id})
+        resp = requests.post(DEVICE_CODE_URL, json={'client_id': self.client_id}, verify=VERIFY_TLS)
         resp.raise_for_status()
         data = resp.json()
 
@@ -113,7 +115,7 @@ class AutodartsAuthClient:
                 'grant_type': DEVICE_GRANT_TYPE,
                 'device_code': device_code,
                 'client_id': self.client_id,
-            })
+            }, verify=VERIFY_TLS)
             if resp.status_code == 200:
                 self._apply(resp.json())
                 self._save_tokens()
@@ -141,7 +143,7 @@ class AutodartsAuthClient:
         resp = requests.post(REFRESH_URL, json={
             'refresh_token': self._refresh_token,
             'client_id': self.client_id,
-        })
+        }, verify=VERIFY_TLS)
         resp.raise_for_status()
         self._apply(resp.json())
         self._save_tokens()
@@ -149,7 +151,7 @@ class AutodartsAuthClient:
             print('Token refreshed, expires', self._expires_at)
 
     def _fetch_user_id(self):
-        resp = requests.get(USERINFO_URL, headers={'Authorization': f'Bearer {self.access_token}'})
+        resp = requests.get(USERINFO_URL, headers={'Authorization': f'Bearer {self.access_token}'}, verify=VERIFY_TLS)
         resp.raise_for_status()
         self.user_id = resp.json()['sub']
 
