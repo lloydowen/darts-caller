@@ -120,13 +120,16 @@ AUTODARTS_CLIENT_ID = None
 
 
 
-AUTODARTS_URL = 'https://autodarts.io'
-AUTODARTS_AUTH_URL = 'https://api.autodarts.io/auth/v1/'
-AUTODARTS_LOBBIES_URL = 'https://api.autodarts.io/gs/v0/lobbies/'
-AUTODARTS_MATCHES_URL = 'https://api.autodarts.io/gs/v0/matches/'
-AUTODARTS_BOARDS_URL = 'https://api.autodarts.io/bs/v0/boards/'
-AUTODARTS_USERS_URL = 'https://api.autodarts.io/as/v0/users/'
-AUTODARTS_WEBSOCKET_URL = 'wss://api.autodarts.io/ms/v0/subscribe'
+AUTODARTS_API_BASE = os.getenv('AUTODARTS_API_URL', 'https://api.autodarts.io').rstrip('/')
+AUTODARTS_WS_BASE = os.getenv('AUTODARTS_WS_URL', 'wss://api.autodarts.io').rstrip('/')
+
+AUTODARTS_URL = os.getenv('AUTODARTS_URL', 'https://autodarts.io')
+AUTODARTS_AUTH_URL = f'{AUTODARTS_API_BASE}/auth/v1/'
+AUTODARTS_LOBBIES_URL = f'{AUTODARTS_API_BASE}/gs/v0/lobbies/'
+AUTODARTS_MATCHES_URL = f'{AUTODARTS_API_BASE}/gs/v0/matches/'
+AUTODARTS_BOARDS_URL = f'{AUTODARTS_API_BASE}/bs/v0/boards/'
+AUTODARTS_USERS_URL = f'{AUTODARTS_API_BASE}/as/v0/users/'
+AUTODARTS_WEBSOCKET_URL = f'{AUTODARTS_WS_BASE}/ms/v0/subscribe'
 
 SUPPORTED_SOUND_FORMATS = ['.mp3', '.wav']
 SUPPORTED_GAME_VARIANTS = ['X01', 'Cricket', 'Random Checkout', 'ATC', 'RTW', 'Count Up', "Bermuda", "Shanghai", "Gotcha"]

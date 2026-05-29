@@ -11,7 +11,9 @@ import requests
 
 SPINNER = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
 
-AUTH_BASE = os.getenv('AUTODARTS_AUTH_URL', 'https://api.autodarts.io/auth/v1/').rstrip('/')
+_API_URL = os.getenv('AUTODARTS_API_URL')
+_DEFAULT_AUTH_URL = f'{_API_URL.rstrip("/")}/auth/v1' if _API_URL else 'https://api.autodarts.io/auth/v1'
+AUTH_BASE = os.getenv('AUTODARTS_AUTH_URL', _DEFAULT_AUTH_URL).rstrip('/')
 DEVICE_CODE_URL = f'{AUTH_BASE}/device/code'
 DEVICE_TOKEN_URL = f'{AUTH_BASE}/device/token'
 REFRESH_URL = f'{AUTH_BASE}/refresh'
