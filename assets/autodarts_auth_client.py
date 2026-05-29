@@ -1,38 +1,25 @@
 import json
+import os
 import threading
 import webbrowser
 from datetime import datetime, timedelta
-from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from time import sleep
 
 import requests
-from authlib.integrations.requests_client import OAuth2Session
 
-AUTH_URL    = 'https://api.autodarts.io/auth/v1/oauth/authorize'
-TOKEN_URL   = 'https://api.autodarts.io/auth/v1/exchange'
-REFRESH_URL = 'https://api.autodarts.io/auth/v1/refresh'
-USERINFO_URL = 'https://api.autodarts.io/auth/v1/userinfo'
+AUTH_BASE = os.getenv('AUTODARTS_AUTH_URL', 'https://api.autodarts.io/auth/v1/').rstrip('/')
+DEVICE_CODE_URL = f'{AUTH_BASE}/device/code'
+DEVICE_TOKEN_URL = f'{AUTH_BASE}/device/token'
+REFRESH_URL = f'{AUTH_BASE}/refresh'
+USERINFO_URL = f'{AUTH_BASE}/userinfo'
+
+DEVICE_GRANT_TYPE = 'urn:ietf:params:oauth:grant-type:device_code'
 
 TOKEN_FILE = Path.home() / '.config' / 'darts-caller' / 'tokens.json'
 
-# Check every 30 seconds; refresh when within 60 seconds of expiry.
 TICK = 30
 REFRESH_AHEAD_SECS = 60
-
-
-class _CallbackHandler(BaseHTTPRequestHandler):
-    callback_url: str = None
-
-    def do_GET(self):
-        _CallbackHandler.callback_url = 'http://127.0.0.1' + self.path
-        self.send_response(200)
-        self.send_header('Content-Type', 'text/html; charset=utf-8')
-        self.end_headers()
-        self.wfile.write(b'<h2>Logged in to Autodarts! You can close this tab.</h2>')
-
-    def log_message(self, *_):
-        pass
 
 
 class AutodartsAuthClient:
@@ -65,6 +52,15 @@ class AutodartsAuthClient:
     # ----------------------------------------------------------------- private
 
     def _login(self):
+        env_access = os.getenv('AUTODARTS_ACCESS_TOKEN')
+        env_refresh = os.getenv('AUTODARTS_REFRESH_TOKEN')
+        if env_access and env_refresh:
+            if self.debug:
+                print('Using tokens from environment variables')
+            self._apply({'access_token': env_access, 'refresh_token': env_refresh})
+            self._fetch_user_id()
+            return
+
         saved = self._load_tokens()
         if saved:
             self._apply(saved)
@@ -80,32 +76,66 @@ class AutodartsAuthClient:
                     self._refresh()
                     return
                 except Exception:
-                    pass  # fall through to browser login
+                    pass
 
-        self._browser_login()
+        self._device_login()
 
-    def _browser_login(self):
-        _CallbackHandler.callback_url = None
-        server = HTTPServer(('127.0.0.1', 0), _CallbackHandler)
-        port = server.server_address[1]
-        redirect_uri = f'http://127.0.0.1:{port}/callback'
+    def _device_login(self):
+        resp = requests.post(DEVICE_CODE_URL, json={'client_id': self.client_id})
+        resp.raise_for_status()
+        data = resp.json()
 
-        session = OAuth2Session(
-            client_id=self.client_id,
-            redirect_uri=redirect_uri,
-            code_challenge_method='S256',
-        )
-        url, _ = session.create_authorization_url(AUTH_URL)
+        device_code = data['device_code']
+        user_code = data['user_code']
+        verification_uri = data['verification_uri']
+        verification_uri_complete = data.get('verification_uri_complete')
+        interval = int(data.get('interval', 5))
+        expires_in = int(data.get('expires_in', 600))
 
-        print('Opening browser for Autodarts login…')
-        webbrowser.open(url)
-        server.handle_request()
-        server.server_close()
+        print('\n' + '=' * 60)
+        print('Connect darts-caller to your Autodarts account:')
+        print(f'  1. Open {verification_uri}')
+        print(f'  2. Enter the code:  {user_code}')
+        if verification_uri_complete:
+            print(f'\nOr open this link directly:\n  {verification_uri_complete}')
+        print('=' * 60 + '\n')
 
-        token = session.fetch_token(TOKEN_URL, authorization_response=_CallbackHandler.callback_url)
-        self._apply(token)
-        self._save_tokens()
-        self._fetch_user_id()
+        if verification_uri_complete:
+            try:
+                webbrowser.open(verification_uri_complete)
+            except Exception:
+                pass
+
+        deadline = datetime.now() + timedelta(seconds=expires_in)
+        while self._run and datetime.now() < deadline:
+            sleep(interval)
+            resp = requests.post(DEVICE_TOKEN_URL, json={
+                'grant_type': DEVICE_GRANT_TYPE,
+                'device_code': device_code,
+                'client_id': self.client_id,
+            })
+            if resp.status_code == 200:
+                self._apply(resp.json())
+                self._save_tokens()
+                self._fetch_user_id()
+                print('Connected to Autodarts!')
+                return
+
+            error = resp.json().get('error')
+            if error == 'authorization_pending':
+                continue
+            if error == 'slow_down':
+                interval += 5
+                continue
+            if error == 'expired_token':
+                print('The code expired before it was confirmed. Requesting a new one…')
+                self._device_login()
+                return
+            if error == 'access_denied':
+                raise RuntimeError('Authorization request was denied')
+            raise RuntimeError(f'Device authorization failed: {error}')
+
+        raise RuntimeError('Timed out waiting for authorization')
 
     def _refresh(self):
         resp = requests.post(REFRESH_URL, json={
@@ -133,7 +163,6 @@ class AutodartsAuthClient:
         elif 'expires_in' in token:
             self._expires_at = datetime.now() + timedelta(seconds=int(token['expires_in']))
 
-        # Refresh token lifetime is 30 days per Autodarts API spec.
         self._refresh_expires_at = datetime.now() + timedelta(days=30)
 
     def _save_tokens(self):
@@ -162,7 +191,7 @@ class AutodartsAuthClient:
             sleep(TICK)
             try:
                 if self.access_token is None:
-                    self._browser_login()
+                    self._device_login()
                     continue
 
                 now = datetime.now()
@@ -170,8 +199,8 @@ class AutodartsAuthClient:
                     if self._refresh_expires_at and now < self._refresh_expires_at:
                         self._refresh()
                     else:
-                        print('Refresh token expired — re-authenticating via browser')
-                        self._browser_login()
+                        print('Refresh token expired — re-authenticating')
+                        self._device_login()
             except Exception:
                 self.access_token = None
                 print('Token refresh failed')
