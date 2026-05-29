@@ -1,5 +1,6 @@
 import json
 import os
+import sys
 import threading
 import webbrowser
 from datetime import datetime, timedelta
@@ -7,6 +8,8 @@ from pathlib import Path
 from time import sleep
 
 import requests
+
+SPINNER = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
 
 AUTH_BASE = os.getenv('AUTODARTS_AUTH_URL', 'https://api.autodarts.io/auth/v1/').rstrip('/')
 DEVICE_CODE_URL = f'{AUTH_BASE}/device/code'
@@ -94,33 +97,22 @@ class AutodartsAuthClient:
         interval = int(data.get('interval', 5))
         expires_in = int(data.get('expires_in', 600))
 
-        print('\n' + '=' * 60)
-        print('Connect darts-caller to your Autodarts account:')
-        print(f'  1. Open {verification_uri}')
-        print(f'  2. Enter the code:  {user_code}')
-        if verification_uri_complete:
-            print(f'\nOr open this link directly:\n  {verification_uri_complete}')
-        print('=' * 60 + '\n')
-
-        if verification_uri_complete:
-            try:
-                webbrowser.open(verification_uri_complete)
-            except Exception:
-                pass
+        self._prompt(user_code, verification_uri, verification_uri_complete)
 
         deadline = datetime.now() + timedelta(seconds=expires_in)
         while self._run and datetime.now() < deadline:
-            sleep(interval)
+            self._wait(interval, deadline)
             resp = requests.post(DEVICE_TOKEN_URL, json={
                 'grant_type': DEVICE_GRANT_TYPE,
                 'device_code': device_code,
                 'client_id': self.client_id,
             }, verify=VERIFY_TLS)
             if resp.status_code == 200:
+                self._clear_line()
                 self._apply(resp.json())
                 self._save_tokens()
                 self._fetch_user_id()
-                print('Connected to Autodarts!')
+                print('✓ Connected to Autodarts!', flush=True)
                 return
 
             error = resp.json().get('error')
@@ -130,14 +122,64 @@ class AutodartsAuthClient:
                 interval += 5
                 continue
             if error == 'expired_token':
-                print('The code expired before it was confirmed. Requesting a new one…')
+                self._clear_line()
+                print('The code expired before it was approved. Requesting a new one…', flush=True)
                 self._device_login()
                 return
             if error == 'access_denied':
+                self._clear_line()
                 raise RuntimeError('Authorization request was denied')
+            self._clear_line()
             raise RuntimeError(f'Device authorization failed: {error}')
 
+        self._clear_line()
         raise RuntimeError('Timed out waiting for authorization')
+
+    def _prompt(self, user_code, verification_uri, verification_uri_complete):
+        opened = False
+        try:
+            opened = webbrowser.open(verification_uri_complete or verification_uri)
+        except Exception:
+            opened = False
+
+        line = '─' * 56
+        print('\n' + line, flush=True)
+        print('  Connect darts-caller to your Autodarts account', flush=True)
+        print(line, flush=True)
+        if opened:
+            print('  ✓ A browser window has been opened to approve this.', flush=True)
+            print('    If it did not open, use the details below.', flush=True)
+        else:
+            print('  Open this page on any device with a browser:', flush=True)
+        print(f'\n      {verification_uri}', flush=True)
+        print(f'      code:  {user_code}', flush=True)
+        if verification_uri_complete:
+            print('\n  …or open this direct link (code pre-filled):', flush=True)
+            print(f'      {verification_uri_complete}', flush=True)
+        print(line + '\n', flush=True)
+
+    def _wait(self, seconds, deadline):
+        expires_in = max(0, int((deadline - datetime.now()).total_seconds()))
+        if not sys.stdout.isatty():
+            print(f'  Waiting for authorization… checking again in {seconds}s (code expires in {expires_in}s)', flush=True)
+            sleep(seconds)
+            return
+        for remaining in range(seconds, 0, -1):
+            expires_in = max(0, int((deadline - datetime.now()).total_seconds()))
+            frame = SPINNER[remaining % len(SPINNER)]
+            sys.stdout.write(
+                f'\r  {frame} Waiting for authorization… next check in {remaining}s '
+                f'(expires in {expires_in}s)   '
+            )
+            sys.stdout.flush()
+            sleep(1)
+        sys.stdout.write('\r  ⠿ Checking…' + ' ' * 48)
+        sys.stdout.flush()
+
+    def _clear_line(self):
+        if sys.stdout.isatty():
+            sys.stdout.write('\r' + ' ' * 72 + '\r')
+            sys.stdout.flush()
 
     def _refresh(self):
         resp = requests.post(REFRESH_URL, json={
